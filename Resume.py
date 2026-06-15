@@ -489,6 +489,16 @@ def parse_resume(_text: str, _text_hash: str) -> dict:
 
 @st.cache_data(show_spinner=False)
 def parse_job_description(_text: str, _hash: str) -> dict:
+
+    if _text is None:
+        raise ValueError("JD text is None")
+
+    text = str(_text or "").strip()
+
+    if not text:
+        raise ValueError("JD text is empty")
+
+    nlp = load_spacy()
     nlp  = load_spacy()
     text = _text
     skills = extract_skills_nlp(text, nlp)
@@ -499,8 +509,21 @@ def parse_job_description(_text: str, _hash: str) -> dict:
     role = role_match.group(1).strip() if role_match else "Position"
 
     def extract_section(pattern: str) -> str:
-        m = re.search(pattern + r"[:\s\n]+([\s\S]{30,800}?)(?=\n[A-Z][A-Za-z ]+:|$)", text, re.I)
-        return m.group(1).strip() if m else ""
+        m = re.search(
+            pattern + r"[:\s\n]+([\s\S]{30,800}?)(?=\n[A-Z][A-Za-z ]+:|$)",
+            text,
+            re.I
+        )
+        
+        if not m:
+            return ""
+            
+        section = m.group(1)
+        
+        if section is None:
+            return ""
+            
+        return str(section).strip()
 
     return {
         "role": role,
