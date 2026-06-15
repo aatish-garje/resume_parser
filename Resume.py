@@ -1,6 +1,6 @@
 """
 AI Resume Matcher & ATS Screening Platform
-Production-grade single-file Streamlit application — v2
+Production-grade single-file Streamlit application — Dynamic Skill Extraction Edition
 """
 
 import streamlit as st
@@ -98,44 +98,35 @@ CERT_KEYWORDS = [
     "kubernetes","docker certified","scrum","agile","itil","six sigma",
 ]
 
-TECH_PATTERNS = [
-    r"\bpython\b",r"\bjava\b",r"\bjavascript\b",r"\btypescript\b",r"\bc\+\+\b",
-    r"\bc#\b",r"\brust\b",r"\bgo(?:lang)?\b",r"\bkotlin\b",r"\bswift\b",
-    r"\bscala\b",r"\bphp\b",r"\bruby\b",r"\bmatlab\b",r"\bperl\b",
-    r"\bbash\b",r"\bshell\b",r"\bsql\b",r"\bnosql\b",r"\bhtml\b",r"\bcss\b",
-    r"\breact(?:\.js)?\b",r"\bvue(?:\.js)?\b",r"\bangular\b",r"\bnext(?:\.js)?\b",
-    r"\bnuxt(?:\.js)?\b",r"\bsvelte\b",r"\bdjango\b",r"\bflask\b",r"\bfastapi\b",
-    r"\bspring(?:\s*boot)?\b",r"\bnode(?:\.js)?\b",r"\bexpress(?:\.js)?\b",
-    r"\blaravel\b",r"\brails\b",r"\bsymfony\b",r"\bstreamlit\b",
-    r"\bpytorch\b",r"\btensorflow\b",r"\bkeras\b",r"\bscikit[-\s]?learn\b",
-    r"\bhugging\s*face\b",r"\bpandas\b",r"\bnumpy\b",r"\bscipy\b",
-    r"\bmatplotlib\b",r"\bseaborn\b",r"\bplotly\b",r"\blangchain\b",
-    r"\bmysql\b",r"\bpostgres(?:ql)?\b",r"\bmongodb\b",r"\bredis\b",
-    r"\belasticsearch\b",r"\bcassandra\b",r"\bsqlite\b",r"\boracle\b",
-    r"\bdynamodb\b",r"\bcosmosdb\b",r"\bfirebase\b",r"\bsupabase\b",
-    r"\bsnowflake\b",r"\bbigquery\b",r"\bdatabricks\b",r"\bneo4j\b",
-    r"\baws\b",r"\bazure\b",r"\bgcp\b",r"\bgoogle\s+cloud\b",
-    r"\bdocker\b",r"\bkubernetes\b",r"\bk8s\b",r"\bterraform\b",
-    r"\bansible\b",r"\bjenkins\b",r"\bgithub\s+actions\b",r"\bcircle\s*ci\b",
-    r"\bhelm\b",r"\bargocd\b",r"\bci/cd\b",r"\bdevsecops\b",
-    r"\blambda\b",r"\bec2\b",r"\bs3\b",r"\brds\b",r"\bvpc\b",
-    r"\bmachine\s+learning\b",r"\bdeep\s+learning\b",r"\bnatural\s+language\s+processing\b",
-    r"\bnlp\b",r"\bcomputer\s+vision\b",r"\bllm\b",r"\bgpt\b",r"\bbert\b",
-    r"\btransformers\b",r"\bmlops\b",r"\bdata\s+science\b",r"\bdata\s+engineering\b",
-    r"\bdata\s+analysis\b",r"\bdata\s+analytics\b",r"\bdata\s+visualization\b",
-    r"\bdata\s+mining\b",r"\bdata\s+modeling\b",r"\bpredictive\s+analytics\b",
-    r"\bpredictive\s+modeling\b",r"\bbusiness\s+intelligence\b",r"\betl\b",
-    r"\bapache\s+spark\b",r"\bhadoop\b",r"\bkafka\b",r"\bairflow\b",
-    r"\bdbt\b",r"\bflink\b",r"\bpower\s*bi\b",r"\btableau\b",r"\blooker\b",
-    r"\bqlik\b",r"\bexcel\b",r"\badvanced\s+excel\b",r"\bpower\s*query\b",r"\bdax\b",
-    r"\bsas\b",r"\bspss\b",r"\bsap\b",r"\bstatistics\b",
-    r"\bagile\b",r"\bscrum\b",r"\bkanban\b",r"\bdevops\b",r"\bsre\b",
-    r"\bmicroservices\b",r"\brestful?\b",r"\bgraphql\b",r"\bgrpc\b",
-    r"\bsoa\b",r"\bcybersecurity\b",r"\bpenetration\s+testing\b",r"\bsiem\b",
-    r"\bleadership\b",r"\bcommunication\b",r"\bteamwork\b",r"\bproblem[-\s]solving\b",
-    r"\bproject\s+management\b",r"\bstakeholder\b",r"\bmentoring\b",
-]
-COMPILED_TECH = [re.compile(p, re.I) for p in TECH_PATTERNS]
+RESUME_GARBAGE_WORDS = {
+    "experience", "knowledge", "ability", "skills", "skill", "team", "work", "years", 
+    "understanding", "application", "applications", 
+    "project", "projects", "environment", "process", "processes", "tools", 
+    "responsibilities", "duties", "qualifications", "role", "position", "candidate", 
+    "job", "description", "opportunities", "career", "growth", "benefits", "salary", 
+    "pay", "equity", "inclusion", "diversity", "culture", "workplace", "office", 
+    "remote", "hybrid", "location", "travel", "shift", "schedule", "hours", "time", 
+    "day", "week", "month", "year", "date", "status", "type", "level", "information", 
+    "communication", "written", "verbal", "oral", "presentation", "interpersonal", 
+    "organizational", "problem", "solving", "troubleshooting", "attention", "detail", 
+    "deadline", "fast-paced", "cross-functional", "collaborative", "independent", 
+    "self-starter", "motivated", "driven", "passionate", "creative", "innovative",
+    "flexible", "adaptable", "dynamic", "excellent", "good", "strong", "working",
+    "proven", "track", "record", "various", "multiple", "complex", "new", "existing",
+    "end-to-end", "high", "quality", "best", "practices", "hands-on", "related",
+    "including", "using", "preferred", "required", "minimum", "maximum", "equivalent",
+    "proficient", "proficiency", "familiarity", "familiar", "expert", "expertise",
+    "advanced", "basic", "intermediate", "certifications", "certification",
+    "certified", "training", "course", "courses", "education", "educational",
+    "background", "field", "fields", "discipline", "disciplines", "area", "areas",
+    "industry", "industries", "sector", "sectors", "market", "markets", 
+    "customer", "clients", "stakeholders", "stakeholder", "vendor", "vendors", 
+    "partner", "partners", "internal", "external", "user", "users", "end-user", "end-users",
+    "business", "intelligence", "management", "analysis", "system", "systems", "data",
+    "design", "development", "testing", "support", "implementation", "integration",
+    "operations", "services", "solutions", "architecture", "strategy", "planning",
+    "execution", "delivery", "maintenance", "optimization", "performance", "monitoring",
+}
 
 EMAIL_RE    = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
 PHONE_RE    = re.compile(r"(\+?\d[\d\s\-().]{7,}\d)")
@@ -218,8 +209,7 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
 
 def extract_text(uploaded_file) -> str:
     try:
-        # Seek back to 0 just in case the file pointer was moved by a previous click
-        uploaded_file.seek(0)
+        uploaded_file.seek(0) # IMPORTANT: Resets file pointer if read multiple times
         raw = uploaded_file.read()
     except Exception as e:
         raise ValueError(f"Cannot read file '{uploaded_file.name}': {e}")
@@ -257,13 +247,7 @@ def _parse_month_year(month_str: str, year_str: str) -> date:
 
 def calculate_experience_from_dates(text: str) -> float:
     """
-    Supports:
-      - Jan 2020 – Dec 2022
-      - January 2020 to Present
-      - 2020 – 2023
-      - 2020 - Present
-      - 01/2020 – 12/2022  (MM/YYYY)
-      - 2020-Present  (no spaces)
+    Supports explicit date range parsing to calculate total experience in years.
     """
     segments: list[tuple[date, date]] = []
     today = date.today()
@@ -356,33 +340,66 @@ def calculate_experience_from_dates(text: str) -> float:
 
 
 # ─── NLP / Skill Extraction ───────────────────────────────────────────────────────
-def extract_skills_nlp(text: str, nlp) -> list[str]:
-    found: set[str] = set()
+def clean_dynamic_skill(skill: str) -> str:
+    # Strip punctuation from edges
+    s = re.sub(r"^[^\w]+|[^\w]+$", "", skill).strip()
+    words = s.split()
+    
+    # Remove garbage structural words from the start/end
+    while words and words[0].lower() in RESUME_GARBAGE_WORDS:
+        words.pop(0)
+    while words and words[-1].lower() in RESUME_GARBAGE_WORDS:
+        words.pop()
+        
+    return " ".join(words)
 
-    # Regex patterns (fast, runs on full text, exact matches only)
-    for pattern in COMPILED_TECH:
-        for m in pattern.finditer(text):
-            skill = re.sub(r"\s+", " ", m.group(0).strip()).lower()
-            found.add(skill)
 
-    # spaCy on first 15 000 chars only (en_core_web_sm is lighter)
+def extract_dynamic_skills(text: str, nlp) -> list[str]:
+    """
+    Dynamically extracts skills based entirely on natural language processing
+    and document context, completely avoiding hardcoded lists.
+    """
+    found = set()
+    
+    # Process text in chunks (en_core_web_sm handles 15k well)
     doc = nlp(text[:15000])
-    for ent in doc.ents:
-        if ent.label_ in ("PRODUCT", "ORG"):
-            tok = ent.text.strip()
-            # Strict word count and length constraints to prevent capturing whole sentences
-            if 2 <= len(tok) <= 30 and len(tok.split()) <= 3 and not tok.isnumeric():
-                found.add(tok.lower())
+    
+    # 1. Proper Nouns & Acronyms (e.g. AWS, Python, Docker)
+    for token in doc:
+        if token.pos_ == "PROPN" and len(token.text) > 1 and not token.is_stop:
+            found.add(token.text.lower())
+        elif token.text.isupper() and len(token.text) >= 2:
+            found.add(token.text.lower())
 
-    skills = []
-    for s in found:
-        s = s.strip(" .,;:()")
-        s = re.sub(r"[^\w\s\+\#\/\-\.]", "", s).strip()
-        # Double check word counts to eliminate run-on garbage phrases
-        if s and 2 <= len(s) <= 35 and len(s.split()) <= 4:
-            skills.append(s)
+    # 2. Filtered Noun Chunks (e.g. "machine learning", "predictive analytics")
+    for chunk in doc.noun_chunks:
+        c = chunk.text.strip().lower()
+        if 2 < len(c) <= 40 and "\n" not in c:
+            chunk_doc = nlp(c)
             
-    return list(set(skills))
+            # STRICT FILTER: Discard any chunk containing verbs, adverbs, or pronouns
+            # This explicitly prevents full sentences from being recognized as skills.
+            if any(t.pos_ in ("VERB", "ADV", "PRON", "SCONJ", "CCONJ", "DET") for t in chunk_doc):
+                continue
+                
+            # Discard if it consists entirely of stop words
+            if all(t.is_stop for t in chunk_doc):
+                continue
+                
+            found.add(c)
+
+    # 3. Post-Processing & Cleanup
+    final_skills = set()
+    for s in found:
+        cleaned = clean_dynamic_skill(s)
+        
+        # Ensure the cleaned skill is long enough and not just a garbage word
+        if len(cleaned) >= 2 and cleaned.lower() not in RESUME_GARBAGE_WORDS:
+            # Ensure it's not made entirely of garbage words combined
+            if not all(w.lower() in RESUME_GARBAGE_WORDS for w in cleaned.split()):
+                final_skills.add(cleaned)
+                
+    return list(final_skills)
 
 
 def extract_name_spacy(text: str, nlp) -> str:
@@ -422,7 +439,7 @@ def extract_certifications(text: str) -> list[str]:
 
 
 def extract_companies_and_designations(text: str, nlp) -> tuple[list[str], list[str]]:
-    doc = nlp(text[:12000])  # sm model: limit input
+    doc = nlp(text[:12000])
     companies = list(dict.fromkeys(ent.text.strip() for ent in doc.ents if ent.label_ == "ORG"))[:8]
     desig_pat = re.compile(
         r"(senior|junior|lead|principal|staff|chief|head|vp|vice\s+president|director|manager|"
@@ -467,8 +484,6 @@ def extract_projects(text: str) -> list[str]:
 # ─── Parsing (cached) ─────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def parse_resume(text: str, text_hash: str) -> dict:
-    # Removed the preceding '_' on arguments to ensure Streamlit correctly hashes 
-    # the function inputs and caches per distinct document.
     nlp = load_spacy()
     name      = extract_name_spacy(text, nlp)
     email     = next(iter(EMAIL_RE.findall(text)), "")
@@ -481,7 +496,7 @@ def parse_resume(text: str, text_hash: str) -> dict:
     certs     = extract_certifications(text)
     projects  = extract_projects(text)
     companies, designations = extract_companies_and_designations(text, nlp)
-    skills    = extract_skills_nlp(text, nlp)
+    skills    = extract_dynamic_skills(text, nlp)
     exp_years = calculate_experience_from_dates(text)
     return {
         "name": name, "email": email, "phone": phone,
@@ -503,7 +518,7 @@ def parse_job_description(text: str, text_hash: str) -> dict:
         raise ValueError("JD text is empty")
 
     nlp = load_spacy()
-    skills = extract_skills_nlp(text, nlp)
+    skills = extract_dynamic_skills(text, nlp)
     exp_match  = re.search(r"(\d+)\+?\s*(?:to\s*\d+)?\s*years?\s+(?:of\s+)?(?:relevant\s+)?experience", text, re.I)
     required_exp = float(exp_match.group(1)) if exp_match else 0.0
     edu_reqs = list(set(deg.upper() for deg in DEGREE_KEYWORDS if deg in text.lower()))[:6]
@@ -516,15 +531,9 @@ def parse_job_description(text: str, text_hash: str) -> dict:
             text,
             re.I
         )
-        
-        if not m:
-            return ""
-            
+        if not m: return ""
         section = m.group(1)
-        
-        if section is None:
-            return ""
-            
+        if section is None: return ""
         return str(section).strip()
 
     return {
@@ -786,7 +795,6 @@ Return exactly:
         raw = response.text.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
-        # Try to extract JSON object if extra text present
         json_match = re.search(r"\{[\s\S]+\}", raw)
         if json_match:
             raw = json_match.group(0)
@@ -1198,7 +1206,7 @@ def main():
     # ── Header ────────────────────────────────────────────────────────────────────
     st.markdown("""
     <div class="hero-title">AI Resume Matcher & ATS Screening Platform</div>
-    <div class="hero-sub">Rank candidates intelligently with NLP, semantic AI, critical skill filtering, and Workday-style ATS scoring</div>
+    <div class="hero-sub">Rank candidates intelligently with dynamic NLP skill extraction and Workday-style ATS scoring</div>
     """, unsafe_allow_html=True)
 
     # ── Upload Section ────────────────────────────────────────────────────────────
@@ -1399,7 +1407,6 @@ def main():
             if search_query:
                 st.caption(f"🔎 Filtered by: *{search_query}*")
 
-            # Top candidate banner
             top = filtered[0]
             top_badge, top_badge_cls = get_fit_badge(top["match_result"]["overall_score"]*100)
             st.success(
@@ -1422,11 +1429,7 @@ def main():
                     f"{rank_icon}  {res['name']}  —  {score_pct:.1f}% match  |  ATS {mr['ats_score']}/100  |  {res['experience_years']} yrs{crit_warn}",
                     expanded=(r["rank"] == 1),
                 ):
-                    # Badge row
-                    st.markdown(
-                        f'<span class="{badge_cls}">{badge_label}</span>',
-                        unsafe_allow_html=True,
-                    )
+                    st.markdown(f'<span class="{badge_cls}">{badge_label}</span>', unsafe_allow_html=True)
                     st.markdown("<br>", unsafe_allow_html=True)
 
                     c1, c2, c3 = st.columns([1.5, 1.5, 1])
@@ -1450,10 +1453,6 @@ def main():
                             st.markdown("**🎓 Education**")
                             for edu in res["education"][:2]:
                                 st.caption(f"• {edu[:120]}")
-                        if res["certifications"]:
-                            st.markdown("**📜 Certifications**")
-                            for cert in res["certifications"][:2]:
-                                st.caption(f"• {cert[:100]}")
 
                     with c2:
                         st.markdown("**📊 Scores**")
@@ -1477,7 +1476,6 @@ def main():
                             render_skill_tags(mr["critical_missing"], "tag-critical", "🚨 Critical")
                         render_skill_tags(mr["additional_skills"][:8],"tag-extra",   "➕ Extra")
 
-                    # ATS & Resume suggestions
                     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
                     sug_c1, sug_c2 = st.columns(2)
                     with sug_c1:
@@ -1489,7 +1487,6 @@ def main():
                         for tip in generate_resume_suggestions(res, jd, mr)[:4]:
                             st.markdown(f'<div class="resume-suggestion">✏️ {tip}</div>', unsafe_allow_html=True)
 
-                    # AI Panel
                     if ai and "error" not in ai:
                         st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
                         st.markdown('<div class="ai-panel">', unsafe_allow_html=True)
@@ -1719,14 +1716,8 @@ def main():
             cmp_df = pd.DataFrame(compare_metrics, columns=["Metric", cand_a, cand_b])
             st.dataframe(cmp_df, use_container_width=True, hide_index=True)
 
-            # Radar overlay
-            st.plotly_chart(
-                chart_radar([ra, rb]),
-                use_container_width=True,
-                key=f"radar_{ra['resume']['name']}_{rb['resume']['name']}"
-            )
+            st.plotly_chart(chart_radar([ra, rb]), use_container_width=True)
 
-            # Unique skills each has that the other doesn't
             skills_a = set(s.lower() for s in ra["resume"]["skills"])
             skills_b = set(s.lower() for s in rb["resume"]["skills"])
             unique_a = list(skills_a - skills_b)[:10]
@@ -1790,8 +1781,8 @@ def main():
             st.plotly_chart(
                 chart_skill_heatmap(all_results[:15], jd), 
                 use_container_width=True,
-                key="jd_skill_heatmap_main" 
-)
+                key="jd_skill_heatmap_main"
+            )
 
 
 if __name__ == "__main__":
