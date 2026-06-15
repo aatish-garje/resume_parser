@@ -1720,7 +1720,11 @@ def main():
             st.dataframe(cmp_df, use_container_width=True, hide_index=True)
 
             # Radar overlay
-            st.plotly_chart(chart_radar([ra, rb]), use_container_width=True)
+            st.plotly_chart(
+                chart_radar([ra, rb]),
+                use_container_width=True,
+                key=f"radar_{ra['resume']['name']}_{rb['resume']['name']}"
+            )
 
             # Unique skills each has that the other doesn't
             skills_a = set(s.lower() for s in ra["resume"]["skills"])
