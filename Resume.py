@@ -1532,7 +1532,11 @@ def main():
                         st.caption(f"⚠️ AI analysis error: {ai['error']}")
 
                     with st.expander("📊 Score Breakdown Chart"):
-                        st.plotly_chart(chart_score_breakdown(mr), use_container_width=True)
+                        st.plotly_chart(
+                            chart_score_breakdown(mr),
+                            use_container_width=True,
+                            key=f"score_breakdown_{idx}"
+                        )
 
     # ── Tab 2: Analytics ──────────────────────────────────────────────────────────
     with tabs[1]:
@@ -1644,7 +1648,11 @@ def main():
                         st.markdown(f'<div class="critical-missing">🚨 {skill} — required by JD and marked as critical</div>', unsafe_allow_html=True)
 
             with dcol2:
-                st.plotly_chart(chart_score_breakdown(mr), use_container_width=True)
+                st.plotly_chart(
+                    chart_score_breakdown(mr),
+                    use_container_width=True,
+                    key=f"score_breakdown_{idx}"
+                )
 
                 st.markdown("**🎯 Skill Gap Analysis**")
                 skill_data_rows = (
