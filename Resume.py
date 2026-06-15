@@ -214,6 +214,8 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
 
 def extract_text(uploaded_file) -> str:
     try:
+        # Seek back to 0 just in case the file pointer was moved by a previous click
+        uploaded_file.seek(0)
         raw = uploaded_file.read()
     except Exception as e:
         raise ValueError(f"Cannot read file '{uploaded_file.name}': {e}")
@@ -462,9 +464,10 @@ def extract_projects(text: str) -> list[str]:
 
 # ─── Parsing (cached) ─────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
-def parse_resume(_text: str, _text_hash: str) -> dict:
+def parse_resume(text: str, text_hash: str) -> dict:
+    # Removed the preceding '_' on arguments to ensure Streamlit correctly hashes 
+    # the function inputs and caches per distinct document.
     nlp = load_spacy()
-    text = _text
     name      = extract_name_spacy(text, nlp)
     email     = next(iter(EMAIL_RE.findall(text)), "")
     phones    = PHONE_RE.findall(text)
@@ -488,19 +491,16 @@ def parse_resume(_text: str, _text_hash: str) -> dict:
 
 
 @st.cache_data(show_spinner=False)
-def parse_job_description(_text: str, _hash: str) -> dict:
-
-    if _text is None:
+def parse_job_description(text: str, text_hash: str) -> dict:
+    if text is None:
         raise ValueError("JD text is None")
 
-    text = str(_text or "").strip()
+    text = str(text or "").strip()
 
     if not text:
         raise ValueError("JD text is empty")
 
     nlp = load_spacy()
-    nlp  = load_spacy()
-    text = _text
     skills = extract_skills_nlp(text, nlp)
     exp_match  = re.search(r"(\d+)\+?\s*(?:to\s*\d+)?\s*years?\s+(?:of\s+)?(?:relevant\s+)?experience", text, re.I)
     required_exp = float(exp_match.group(1)) if exp_match else 0.0
@@ -1784,7 +1784,7 @@ def main():
             st.plotly_chart(
                 chart_skill_heatmap(all_results[:15], jd), 
                 use_container_width=True,
-                key="jd_skill_heatmap_main" # Add this unique key
+                key="jd_skill_heatmap_main" 
 )
 
 
