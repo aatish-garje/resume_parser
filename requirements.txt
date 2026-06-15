@@ -11,5 +11,4 @@ scikit-learn
 transformers
 google-generativeai
 Pillow
-torch==2.8.0
 spacy>=3.8.13
