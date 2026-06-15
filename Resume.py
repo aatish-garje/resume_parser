@@ -122,9 +122,13 @@ TECH_PATTERNS = [
     r"\bmachine\s+learning\b",r"\bdeep\s+learning\b",r"\bnatural\s+language\s+processing\b",
     r"\bnlp\b",r"\bcomputer\s+vision\b",r"\bllm\b",r"\bgpt\b",r"\bbert\b",
     r"\btransformers\b",r"\bmlops\b",r"\bdata\s+science\b",r"\bdata\s+engineering\b",
+    r"\bdata\s+analysis\b",r"\bdata\s+analytics\b",r"\bdata\s+visualization\b",
+    r"\bdata\s+mining\b",r"\bdata\s+modeling\b",r"\bpredictive\s+analytics\b",
+    r"\bpredictive\s+modeling\b",r"\bbusiness\s+intelligence\b",r"\betl\b",
     r"\bapache\s+spark\b",r"\bhadoop\b",r"\bkafka\b",r"\bairflow\b",
     r"\bdbt\b",r"\bflink\b",r"\bpower\s*bi\b",r"\btableau\b",r"\blooker\b",
-    r"\bqlik\b",r"\bexcel\b",r"\bsas\b",r"\bspss\b",
+    r"\bqlik\b",r"\bexcel\b",r"\badvanced\s+excel\b",r"\bpower\s*query\b",r"\bdax\b",
+    r"\bsas\b",r"\bspss\b",r"\bsap\b",r"\bstatistics\b",
     r"\bagile\b",r"\bscrum\b",r"\bkanban\b",r"\bdevops\b",r"\bsre\b",
     r"\bmicroservices\b",r"\brestful?\b",r"\bgraphql\b",r"\bgrpc\b",
     r"\bsoa\b",r"\bcybersecurity\b",r"\bpenetration\s+testing\b",r"\bsiem\b",
@@ -355,7 +359,7 @@ def calculate_experience_from_dates(text: str) -> float:
 def extract_skills_nlp(text: str, nlp) -> list[str]:
     found: set[str] = set()
 
-    # Regex patterns (fast, runs on full text)
+    # Regex patterns (fast, runs on full text, exact matches only)
     for pattern in COMPILED_TECH:
         for m in pattern.finditer(text):
             skill = re.sub(r"\s+", " ", m.group(0).strip()).lower()
@@ -366,20 +370,18 @@ def extract_skills_nlp(text: str, nlp) -> list[str]:
     for ent in doc.ents:
         if ent.label_ in ("PRODUCT", "ORG"):
             tok = ent.text.strip()
-            if 2 <= len(tok) <= 40 and not tok.isnumeric():
+            # Strict word count and length constraints to prevent capturing whole sentences
+            if 2 <= len(tok) <= 30 and len(tok.split()) <= 3 and not tok.isnumeric():
                 found.add(tok.lower())
-
-    for chunk in doc.noun_chunks:
-        c = chunk.text.strip().lower()
-        if 3 <= len(c) <= 35 and any(p.search(c) for p in COMPILED_TECH):
-            found.add(c)
 
     skills = []
     for s in found:
         s = s.strip(" .,;:()")
         s = re.sub(r"[^\w\s\+\#\/\-\.]", "", s).strip()
-        if s and len(s) >= 2:
+        # Double check word counts to eliminate run-on garbage phrases
+        if s and 2 <= len(s) <= 35 and len(s.split()) <= 4:
             skills.append(s)
+            
     return list(set(skills))
 
 
