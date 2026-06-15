@@ -1651,7 +1651,7 @@ def main():
                 st.plotly_chart(
                     chart_score_breakdown(mr),
                     use_container_width=True,
-                    key=f"score_breakdown_{idx}"
+                    key=f"score_breakdown_deep_{res['name']}"
                 )
 
                 st.markdown("**🎯 Skill Gap Analysis**")
@@ -1781,7 +1781,11 @@ def main():
                 )
                 st.plotly_chart(fig_cov, use_container_width=True)
 
-            st.plotly_chart(chart_skill_heatmap(all_results[:15], jd), use_container_width=True)
+            st.plotly_chart(
+                chart_skill_heatmap(all_results[:15], jd), 
+                use_container_width=True,
+                key="jd_skill_heatmap_main" # Add this unique key
+)
 
 
 if __name__ == "__main__":
