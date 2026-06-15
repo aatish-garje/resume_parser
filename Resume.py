@@ -1535,7 +1535,7 @@ def main():
                         st.plotly_chart(
                             chart_score_breakdown(mr),
                             use_container_width=True,
-                            key=f"score_breakdown_{idx}"
+                            key=f"score_breakdown_{res['name']}"
                         )
 
     # ── Tab 2: Analytics ──────────────────────────────────────────────────────────
