@@ -1716,7 +1716,11 @@ def main():
             cmp_df = pd.DataFrame(compare_metrics, columns=["Metric", cand_a, cand_b])
             st.dataframe(cmp_df, use_container_width=True, hide_index=True)
 
-            st.plotly_chart(chart_radar([ra, rb]), use_container_width=True)
+            st.plotly_chart(
+                chart_radar([ra, rb]),
+                use_container_width=True,
+                key=f"radar_{ra['resume']['name']}_{rb['resume']['name']}"
+            )
 
             skills_a = set(s.lower() for s in ra["resume"]["skills"])
             skills_b = set(s.lower() for s in rb["resume"]["skills"])
