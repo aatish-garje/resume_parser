@@ -72,7 +72,7 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
     """Uses Gemini 1.5 Flash to extract structured JSON data from the resume based on the JD."""
     genai.configure(api_key=api_key)
     # Changed to '-latest' to resolve 404 errors on some API endpoints/older SDK versions
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    model = genai.GenerativeModel("gemini-2.5-flash")
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
