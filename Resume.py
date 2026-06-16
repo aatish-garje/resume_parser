@@ -71,7 +71,8 @@ def extract_text_from_file(uploaded_file) -> str:
 def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> dict:
     """Uses Gemini 1.5 Flash to extract structured JSON data from the resume based on the JD."""
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Changed to '-latest' to resolve 404 errors on some API endpoints/older SDK versions
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
@@ -119,7 +120,15 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
             prompt,
             generation_config={"response_mime_type": "application/json", "temperature": 0.1}
         )
-        return json.loads(response.text)
+        
+        # Strip potential markdown formatting that can sometimes wrap JSON responses
+        response_text = response.text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:-3].strip()
+        elif response_text.startswith("```"):
+            response_text = response_text[3:-3].strip()
+            
+        return json.loads(response_text)
     except Exception as e:
         st.error(f"Gemini API Error: {e}")
         return None
