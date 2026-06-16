@@ -1,31 +1,24 @@
 """
-AI Resume Matcher & ATS Screening Platform
-Production-Grade Edition — Powered by Gemini 1.5 Flash Structured Extraction
+Local AI Resume Matcher & ATS Screening Platform
+Production-Grade Edition — Powered by Local LLMs (Ollama)
+Free, Unlimited, and Private.
 """
 
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import pdfplumber
 import docx
 import json
 import logging
 from datetime import date
-import google.generativeai as genai
-import io
+import ollama
 
 # ─── Configuration & Styling ──────────────────────────────────────────────────
 st.set_page_config(
-    page_title="AI Resume Matcher & ATS",
+    page_title="Local AI Resume Matcher & ATS",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-PAPER_BG = "rgba(0,0,0,0)"
-CHART_BG = "rgba(0,0,0,0)"
-FONT_COLOR = "#e2e8f0"
 
 st.markdown("""
 <style>
@@ -68,12 +61,9 @@ def extract_text_from_file(uploaded_file) -> str:
         logging.error(f"Error reading {uploaded_file.name}: {e}")
     return text.strip()
 
-# ─── Gemini LLM Extraction Logic ──────────────────────────────────────────────
-def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> dict:
-    """Uses Gemini to extract structured JSON data highlighting match, skills gap, and red flags."""
-    genai.configure(api_key=api_key)
-    # Using gemini-2.5-flash for fast, structured extraction
-    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+# ─── Local LLM Extraction Logic (Ollama) ──────────────────────────────────────
+def analyze_resume_with_local_llm(resume_text: str, jd_text: str, model_name: str) -> dict:
+    """Uses a local LLM via Ollama to extract structured JSON data."""
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
@@ -100,7 +90,7 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
     7. red_flags: List obvious dealbreakers (e.g., "JD requires 5 years exp, candidate has 2", "Missing mandatory Bachelor's degree", "Based in NY, JD requires London").
     8. overall_match_percentage: Give a strict integer (0-100) reflecting how well the candidate fits the JD. Be critical.
 
-    Respond STRICTLY with a JSON object matching this schema:
+    Respond STRICTLY with a JSON object matching this schema. Do not include markdown, code blocks, or extra text:
     {{
         "candidate_name": "string",
         "current_role": "string",
@@ -121,21 +111,22 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
     """
     
     try:
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json", "temperature": 0.1}
+        # Enforce JSON output format directly in Ollama for maximum reliability
+        response = ollama.chat(
+            model=model_name,
+            messages=[{'role': 'user', 'content': prompt}],
+            format='json',
+            options={'temperature': 0.1}
         )
         
-        # Strip potential markdown formatting that can sometimes wrap JSON responses
-        response_text = response.text.strip()
-        if response_text.startswith("```json"):
-            response_text = response_text[7:-3].strip()
-        elif response_text.startswith("```"):
-            response_text = response_text[3:-3].strip()
-            
+        response_text = response['message']['content'].strip()
         return json.loads(response_text)
+        
+    except json.JSONDecodeError as e:
+        st.error(f"Failed to parse LLM output as JSON. The model might need a stronger prompt or try a different model. Error: {e}")
+        return None
     except Exception as e:
-        st.error(f"Gemini API Error: {e}")
+        st.error(f"Ollama Connection Error: {e}. Is Ollama running in the background?")
         return None
 
 # ─── UI Rendering ─────────────────────────────────────────────────────────────
@@ -144,11 +135,15 @@ def render_dashboard(results: list):
     st.markdown("### 📋 Candidate Evaluation Profiles")
     
     # Sort results by match percentage descending
-    results.sort(key=lambda x: x['overall_match_percentage'], reverse=True)
+    results.sort(key=lambda x: x.get('overall_match_percentage', 0), reverse=True)
     
     for res in results:
-        # Expander Title with Match Score
-        expander_title = f"{res['candidate_name']} - {res['overall_match_percentage']}% Match ({res['total_experience_years']} Yrs Exp)"
+        # Gracefully handle missing data
+        match_score = res.get('overall_match_percentage', 0)
+        name = res.get('candidate_name', 'Unknown Candidate')
+        exp = res.get('total_experience_years', 0)
+        
+        expander_title = f"{name} - {match_score}% Match ({exp} Yrs Exp)"
         
         with st.expander(expander_title):
             # Display Quick Logistics
@@ -168,7 +163,10 @@ def render_dashboard(results: list):
                     st.write("No formal education parsed.")
                 else:
                     for edu in res['education']:
-                        st.markdown(f"- **{edu.get('degree', 'Unknown Degree')}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{edu.get('institution', 'Unknown Inst.')} | {edu.get('score', '')}</span>", unsafe_allow_html=True)
+                        degree = edu.get('degree', 'Unknown Degree')
+                        inst = edu.get('institution', 'Unknown Inst.')
+                        score = edu.get('score', '')
+                        st.markdown(f"- **{degree}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{inst} | {score}</span>", unsafe_allow_html=True)
             
             with sc2:
                 st.markdown("**🎯 Skills Gap Analysis**")
@@ -190,10 +188,14 @@ def render_dashboard(results: list):
 # ─── Main App Flow ────────────────────────────────────────────────────────────
 def main():
     with st.sidebar:
-        st.markdown("### ⚙️ ATS Engine Settings")
-        api_key = st.text_input("Gemini API Key", type="password", help="Required to run the parsing LLM.")
-        if not api_key and "GEMINI_API_KEY" in st.secrets:
-            api_key = st.secrets["GEMINI_API_KEY"]
+        st.markdown("### ⚙️ ATS Engine Settings (Local)")
+        
+        # Dropdown to select local model
+        model_selection = st.selectbox(
+            "Select Local AI Model", 
+            ["qwen2.5:7b", "llama3.2", "mistral", "gemma2"],
+            help="Ensure you have pulled this model via 'ollama pull <model_name>' in your terminal."
+        )
             
         st.markdown("---")
         st.markdown("### 📄 Input Documents")
@@ -201,10 +203,6 @@ def main():
         resume_files = st.file_uploader("Upload Resumes (Batch)", type=["pdf", "docx"], accept_multiple_files=True)
         
         process_btn = st.button("🚀 Run AI Analysis", use_container_width=True, type="primary")
-
-    if not api_key:
-        st.info("👋 Welcome to the AI Matcher! Please enter your Google Gemini API Key in the sidebar to securely process documents.")
-        return
 
     if process_btn:
         if not jd_file:
@@ -226,12 +224,12 @@ def main():
             status_text.text(f"Extracting & Evaluating {resume_file.name} ({i+1}/{len(resume_files)})...")
             resume_text = extract_text_from_file(resume_file)
             
-            # Analyze via Gemini using the enhanced prompt
-            parsed_data = analyze_resume_with_gemini(resume_text, jd_text, api_key)
+            # Analyze via Local Ollama
+            parsed_data = analyze_resume_with_local_llm(resume_text, jd_text, model_selection)
             
             if parsed_data:
                 # If name is missing or defaulted by LLM, fallback to filename
-                if not parsed_data.get("candidate_name") or parsed_data["candidate_name"].lower() == "string":
+                if not parsed_data.get("candidate_name") or parsed_data["candidate_name"].lower() in ["string", "unknown"]:
                     parsed_data["candidate_name"] = resume_file.name.replace(".pdf", "").replace(".docx", "")
                 all_results.append(parsed_data)
                 
@@ -243,7 +241,7 @@ def main():
         if all_results:
             render_dashboard(all_results)
         else:
-            st.error("Extraction failed for all resumes. Please check your API key validity and document contents.")
+            st.error("Extraction failed for all resumes. Ensure Ollama is running (`ollama serve`) and the selected model is downloaded.")
 
 if __name__ == "__main__":
     main()
