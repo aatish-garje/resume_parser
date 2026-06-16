@@ -1,7 +1,7 @@
 """
-Local AI Resume Matcher & ATS Screening Platform
-Production-Grade Edition — Powered by Local LLMs (Ollama)
-Free, Unlimited, and Private.
+AI Resume Matcher & ATS Screening Platform
+Streamlit Cloud Friendly Edition — Powered by Groq (Llama 3)
+Generous Free Tier (14,000+ requests/day) & High Accuracy
 """
 
 import streamlit as st
@@ -10,11 +10,11 @@ import docx
 import json
 import logging
 from datetime import date
-import ollama
+from groq import Groq
 
 # ─── Configuration & Styling ──────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Local AI Resume Matcher & ATS",
+    page_title="AI Resume Matcher & ATS",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -55,15 +55,15 @@ def extract_text_from_file(uploaded_file) -> str:
             for para in doc.paragraphs:
                 text += para.text + "\n"
         else:
-            # Fallback for txt
             text = uploaded_file.getvalue().decode("utf-8")
     except Exception as e:
         logging.error(f"Error reading {uploaded_file.name}: {e}")
     return text.strip()
 
-# ─── Local LLM Extraction Logic (Ollama) ──────────────────────────────────────
-def analyze_resume_with_local_llm(resume_text: str, jd_text: str, model_name: str) -> dict:
-    """Uses a local LLM via Ollama to extract structured JSON data."""
+# ─── Groq API Extraction Logic ────────────────────────────────────────────────
+def analyze_resume_with_groq(resume_text: str, jd_text: str, api_key: str, model_name: str) -> dict:
+    """Uses Groq API (Llama 3/Gemma) to extract structured JSON data."""
+    client = Groq(api_key=api_key)
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
@@ -82,15 +82,15 @@ def analyze_resume_with_local_llm(resume_text: str, jd_text: str, model_name: st
     1. candidate_name: Extract the candidate's full name.
     2. current_role: Extract their current or most recent job title.
     3. location: Extract their current city/location (if available).
-    4. total_experience_years: Calculate exact total professional experience as a float (e.g., 3.6). Do NOT overcount overlapping roles.
+    4. total_experience_years: Calculate exact total professional experience as a float (e.g., 3.6).
     5. education: Extract academic degrees, institutions, and scores.
     6. Skills Analysis: 
        - matched_jd_skills: Skills they have that are explicitly requested in the JD.
        - missing_jd_skills: Core skills requested in the JD that are nowhere to be found in the resume.
-    7. red_flags: List obvious dealbreakers (e.g., "JD requires 5 years exp, candidate has 2", "Missing mandatory Bachelor's degree", "Based in NY, JD requires London").
-    8. overall_match_percentage: Give a strict integer (0-100) reflecting how well the candidate fits the JD. Be critical.
+    7. red_flags: List obvious dealbreakers based on the JD.
+    8. overall_match_percentage: Strict integer (0-100) reflecting how well candidate fits JD.
 
-    Respond STRICTLY with a JSON object matching this schema. Do not include markdown, code blocks, or extra text:
+    Respond STRICTLY with a JSON object matching this exact schema:
     {{
         "candidate_name": "string",
         "current_role": "string",
@@ -111,22 +111,21 @@ def analyze_resume_with_local_llm(resume_text: str, jd_text: str, model_name: st
     """
     
     try:
-        # Enforce JSON output format directly in Ollama for maximum reliability
-        response = ollama.chat(
+        response = client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a helpful HR assistant that always outputs valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
             model=model_name,
-            messages=[{'role': 'user', 'content': prompt}],
-            format='json',
-            options={'temperature': 0.1}
+            temperature=0.1,
+            # Enforces strictly valid JSON output to prevent errors
+            response_format={"type": "json_object"} 
         )
         
-        response_text = response['message']['content'].strip()
+        response_text = response.choices[0].message.content
         return json.loads(response_text)
-        
-    except json.JSONDecodeError as e:
-        st.error(f"Failed to parse LLM output as JSON. The model might need a stronger prompt or try a different model. Error: {e}")
-        return None
     except Exception as e:
-        st.error(f"Ollama Connection Error: {e}. Is Ollama running in the background?")
+        st.error(f"Groq API Error: {e}")
         return None
 
 # ─── UI Rendering ─────────────────────────────────────────────────────────────
@@ -138,20 +137,17 @@ def render_dashboard(results: list):
     results.sort(key=lambda x: x.get('overall_match_percentage', 0), reverse=True)
     
     for res in results:
-        # Gracefully handle missing data
         match_score = res.get('overall_match_percentage', 0)
-        name = res.get('candidate_name', 'Unknown Candidate')
+        name = res.get('candidate_name', 'Unknown')
         exp = res.get('total_experience_years', 0)
         
         expander_title = f"{name} - {match_score}% Match ({exp} Yrs Exp)"
         
         with st.expander(expander_title):
-            # Display Quick Logistics
             location = res.get('location', 'Location N/A')
             role = res.get('current_role', 'Role N/A')
             st.markdown(f"<span class='info-badge'>📍 {location}</span> <span class='info-badge'>💼 {role}</span><br><br>", unsafe_allow_html=True)
             
-            # Show Red Flags prominently if they exist
             if res.get('red_flags'):
                 st.error("**🚩 Potential Red Flags & Missing Criteria:**\n" + "\n".join([f"- {flag}" for flag in res['red_flags']]))
             
@@ -163,10 +159,7 @@ def render_dashboard(results: list):
                     st.write("No formal education parsed.")
                 else:
                     for edu in res['education']:
-                        degree = edu.get('degree', 'Unknown Degree')
-                        inst = edu.get('institution', 'Unknown Inst.')
-                        score = edu.get('score', '')
-                        st.markdown(f"- **{degree}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{inst} | {score}</span>", unsafe_allow_html=True)
+                        st.markdown(f"- **{edu.get('degree', 'Unknown')}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{edu.get('institution', 'Unknown')} | {edu.get('score', '')}</span>", unsafe_allow_html=True)
             
             with sc2:
                 st.markdown("**🎯 Skills Gap Analysis**")
@@ -188,13 +181,17 @@ def render_dashboard(results: list):
 # ─── Main App Flow ────────────────────────────────────────────────────────────
 def main():
     with st.sidebar:
-        st.markdown("### ⚙️ ATS Engine Settings (Local)")
+        st.markdown("### ⚙️ ATS Engine Settings")
+        api_key = st.text_input("Groq API Key (Free)", type="password", help="Get a free key at console.groq.com")
         
-        # Dropdown to select local model
+        if not api_key and "GROQ_API_KEY" in st.secrets:
+            api_key = st.secrets["GROQ_API_KEY"]
+            
         model_selection = st.selectbox(
-            "Select Local AI Model", 
-            ["qwen2.5:7b", "llama3.2", "mistral", "gemma2"],
-            help="Ensure you have pulled this model via 'ollama pull <model_name>' in your terminal."
+            "Select Groq Model", 
+            ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"],
+            index=0,
+            help="Llama 3 is highly recommended for accuracy comparable to Gemini."
         )
             
         st.markdown("---")
@@ -204,33 +201,30 @@ def main():
         
         process_btn = st.button("🚀 Run AI Analysis", use_container_width=True, type="primary")
 
+    if not api_key:
+        st.info("👋 Please enter a free Groq API Key in the sidebar to run the analysis.")
+        return
+
     if process_btn:
-        if not jd_file:
-            st.warning("Please upload a Job Description to evaluate candidates against.")
-            return
-        if not resume_files:
-            st.warning("Please upload at least one Resume.")
+        if not jd_file or not resume_files:
+            st.warning("Please upload both a JD and at least one Resume.")
             return
             
         jd_text = extract_text_from_file(jd_file)
         
-        # UI for processing state
         progress_bar = st.progress(0)
         status_text = st.empty()
-        
         all_results = []
         
         for i, resume_file in enumerate(resume_files):
-            status_text.text(f"Extracting & Evaluating {resume_file.name} ({i+1}/{len(resume_files)})...")
+            status_text.text(f"Evaluating {resume_file.name} ({i+1}/{len(resume_files)})...")
             resume_text = extract_text_from_file(resume_file)
             
-            # Analyze via Local Ollama
-            parsed_data = analyze_resume_with_local_llm(resume_text, jd_text, model_selection)
+            parsed_data = analyze_resume_with_groq(resume_text, jd_text, api_key, model_selection)
             
             if parsed_data:
-                # If name is missing or defaulted by LLM, fallback to filename
                 if not parsed_data.get("candidate_name") or parsed_data["candidate_name"].lower() in ["string", "unknown"]:
-                    parsed_data["candidate_name"] = resume_file.name.replace(".pdf", "").replace(".docx", "")
+                    parsed_data["candidate_name"] = resume_file.name.rsplit(".", 1)[0]
                 all_results.append(parsed_data)
                 
             progress_bar.progress((i + 1) / len(resume_files))
@@ -241,7 +235,7 @@ def main():
         if all_results:
             render_dashboard(all_results)
         else:
-            st.error("Extraction failed for all resumes. Ensure Ollama is running (`ollama serve`) and the selected model is downloaded.")
+            st.error("Extraction failed. Check your API key and file contents.")
 
 if __name__ == "__main__":
     main()
