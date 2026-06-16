@@ -140,63 +140,7 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
 
 # ─── UI Rendering ─────────────────────────────────────────────────────────────
 def render_dashboard(results: list):
-    """Renders the main ATS dashboard with enhanced data visualization."""
-    st.markdown("### 📊 ATS Analytics Dashboard")
-    
-    # Summary Metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""<div class="kpi-card">
-            <h4 style="margin:0; color:#94a3b8;">Total Candidates Parsed</h4>
-            <h1 style="margin:0; color:#38bdf8;">{len(results)}</h1>
-            </div>""", unsafe_allow_html=True)
-    with col2:
-        avg_match = sum(r['overall_match_percentage'] for r in results) / len(results) if results else 0
-        st.markdown(f"""<div class="kpi-card">
-            <h4 style="margin:0; color:#94a3b8;">Average JD Match</h4>
-            <h1 style="margin:0; color:#34d399;">{avg_match:.1f}%</h1>
-            </div>""", unsafe_allow_html=True)
-    with col3:
-        top_candidates = sum(1 for r in results if r['overall_match_percentage'] >= 75)
-        st.markdown(f"""<div class="kpi-card">
-            <h4 style="margin:0; color:#94a3b8;">Highly Qualified (>75%)</h4>
-            <h1 style="margin:0; color:#fbbf24;">{top_candidates}</h1>
-            </div>""", unsafe_allow_html=True)
-
-    # Convert results to DataFrame for charting
-    df = pd.DataFrame(results)
-    
-    # Layout for charts
-    c1, c2 = st.columns([2, 1])
-    
-    with c1:
-        # Match Percentage Bar Chart
-        df_sorted = df.sort_values(by='overall_match_percentage', ascending=True)
-        fig_match = px.bar(
-            df_sorted, 
-            x='overall_match_percentage', 
-            y='candidate_name', 
-            orientation='h',
-            color='overall_match_percentage',
-            color_continuous_scale=[[0, "#f87171"], [0.5, "#fbbf24"], [1, "#34d399"]],
-            title="Candidate Compatibility Scores"
-        )
-        fig_match.update_layout(paper_bgcolor=PAPER_BG, plot_bgcolor=CHART_BG, font_color=FONT_COLOR, margin=dict(l=10, r=10, t=40, b=10))
-        st.plotly_chart(fig_match, use_container_width=True)
-
-    with c2:
-        # Experience Distribution Box Plot
-        fig_exp = px.box(
-            df, 
-            y='total_experience_years', 
-            points="all", 
-            title="Tenure Distribution (Years)",
-            color_discrete_sequence=["#38bdf8"]
-        )
-        fig_exp.update_layout(paper_bgcolor=PAPER_BG, plot_bgcolor=CHART_BG, font_color=FONT_COLOR, margin=dict(l=10, r=10, t=40, b=10))
-        st.plotly_chart(fig_exp, use_container_width=True)
-
-    st.markdown("---")
+    """Renders the main ATS candidate profiles."""
     st.markdown("### 📋 Candidate Evaluation Profiles")
     
     # Sort results by match percentage descending
