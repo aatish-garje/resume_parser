@@ -1,16 +1,19 @@
 """
 AI Resume Matcher & ATS Screening Platform
-Streamlit Cloud Friendly Edition — Powered by Groq (Llama 3)
-Generous Free Tier (14,000+ requests/day) & High Accuracy
+Production-Grade Edition — Powered by Gemini 1.5 Flash Structured Extraction
 """
 
 import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import pdfplumber
 import docx
 import json
 import logging
 from datetime import date
-from groq import Groq
+import google.generativeai as genai
+import io
 
 # ─── Configuration & Styling ──────────────────────────────────────────────────
 st.set_page_config(
@@ -19,6 +22,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+PAPER_BG = "rgba(0,0,0,0)"
+CHART_BG = "rgba(0,0,0,0)"
+FONT_COLOR = "#e2e8f0"
 
 st.markdown("""
 <style>
@@ -55,15 +62,18 @@ def extract_text_from_file(uploaded_file) -> str:
             for para in doc.paragraphs:
                 text += para.text + "\n"
         else:
+            # Fallback for txt
             text = uploaded_file.getvalue().decode("utf-8")
     except Exception as e:
         logging.error(f"Error reading {uploaded_file.name}: {e}")
     return text.strip()
 
-# ─── Groq API Extraction Logic ────────────────────────────────────────────────
-def analyze_resume_with_groq(resume_text: str, jd_text: str, api_key: str, model_name: str) -> dict:
-    """Uses Groq API (Llama 3/Gemma) to extract structured JSON data."""
-    client = Groq(api_key=api_key)
+# ─── Gemini LLM Extraction Logic ──────────────────────────────────────────────
+def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> dict:
+    """Uses Gemini to extract structured JSON data highlighting match, skills gap, and red flags."""
+    genai.configure(api_key=api_key)
+    # Using gemini-2.5-flash for fast, structured extraction
+    model = genai.GenerativeModel("gemini-2.5-flash")
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
@@ -82,15 +92,15 @@ def analyze_resume_with_groq(resume_text: str, jd_text: str, api_key: str, model
     1. candidate_name: Extract the candidate's full name.
     2. current_role: Extract their current or most recent job title.
     3. location: Extract their current city/location (if available).
-    4. total_experience_years: Calculate exact total professional experience as a float (e.g., 3.6).
+    4. total_experience_years: Calculate exact total professional experience as a float (e.g., 3.6). Do NOT overcount overlapping roles.
     5. education: Extract academic degrees, institutions, and scores.
     6. Skills Analysis: 
        - matched_jd_skills: Skills they have that are explicitly requested in the JD.
        - missing_jd_skills: Core skills requested in the JD that are nowhere to be found in the resume.
-    7. red_flags: List obvious dealbreakers based on the JD.
-    8. overall_match_percentage: Strict integer (0-100) reflecting how well candidate fits JD.
+    7. red_flags: List obvious dealbreakers (e.g., "JD requires 5 years exp, candidate has 2", "Missing mandatory Bachelor's degree", "Based in NY, JD requires London").
+    8. overall_match_percentage: Give a strict integer (0-100) reflecting how well the candidate fits the JD. Be critical.
 
-    Respond STRICTLY with a JSON object matching this exact schema:
+    Respond STRICTLY with a JSON object matching this schema:
     {{
         "candidate_name": "string",
         "current_role": "string",
@@ -111,21 +121,21 @@ def analyze_resume_with_groq(resume_text: str, jd_text: str, api_key: str, model
     """
     
     try:
-        response = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": "You are a helpful HR assistant that always outputs valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            model=model_name,
-            temperature=0.1,
-            # Enforces strictly valid JSON output to prevent errors
-            response_format={"type": "json_object"} 
+        response = model.generate_content(
+            prompt,
+            generation_config={"response_mime_type": "application/json", "temperature": 0.1}
         )
         
-        response_text = response.choices[0].message.content
+        # Strip potential markdown formatting that can sometimes wrap JSON responses
+        response_text = response.text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:-3].strip()
+        elif response_text.startswith("```"):
+            response_text = response_text[3:-3].strip()
+            
         return json.loads(response_text)
     except Exception as e:
-        st.error(f"Groq API Error: {e}")
+        st.error(f"Gemini API Error: {e}")
         return None
 
 # ─── UI Rendering ─────────────────────────────────────────────────────────────
@@ -134,20 +144,19 @@ def render_dashboard(results: list):
     st.markdown("### 📋 Candidate Evaluation Profiles")
     
     # Sort results by match percentage descending
-    results.sort(key=lambda x: x.get('overall_match_percentage', 0), reverse=True)
+    results.sort(key=lambda x: x['overall_match_percentage'], reverse=True)
     
     for res in results:
-        match_score = res.get('overall_match_percentage', 0)
-        name = res.get('candidate_name', 'Unknown')
-        exp = res.get('total_experience_years', 0)
-        
-        expander_title = f"{name} - {match_score}% Match ({exp} Yrs Exp)"
+        # Expander Title with Match Score
+        expander_title = f"{res['candidate_name']} - {res['overall_match_percentage']}% Match ({res['total_experience_years']} Yrs Exp)"
         
         with st.expander(expander_title):
+            # Display Quick Logistics
             location = res.get('location', 'Location N/A')
             role = res.get('current_role', 'Role N/A')
             st.markdown(f"<span class='info-badge'>📍 {location}</span> <span class='info-badge'>💼 {role}</span><br><br>", unsafe_allow_html=True)
             
+            # Show Red Flags prominently if they exist
             if res.get('red_flags'):
                 st.error("**🚩 Potential Red Flags & Missing Criteria:**\n" + "\n".join([f"- {flag}" for flag in res['red_flags']]))
             
@@ -159,7 +168,7 @@ def render_dashboard(results: list):
                     st.write("No formal education parsed.")
                 else:
                     for edu in res['education']:
-                        st.markdown(f"- **{edu.get('degree', 'Unknown')}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{edu.get('institution', 'Unknown')} | {edu.get('score', '')}</span>", unsafe_allow_html=True)
+                        st.markdown(f"- **{edu.get('degree', 'Unknown Degree')}** <br> <span style='color:#94a3b8; font-size:0.9em;'>{edu.get('institution', 'Unknown Inst.')} | {edu.get('score', '')}</span>", unsafe_allow_html=True)
             
             with sc2:
                 st.markdown("**🎯 Skills Gap Analysis**")
@@ -182,17 +191,9 @@ def render_dashboard(results: list):
 def main():
     with st.sidebar:
         st.markdown("### ⚙️ ATS Engine Settings")
-        api_key = st.text_input("Groq API Key (Free)", type="password", help="Get a free key at console.groq.com")
-        
-        if not api_key and "GROQ_API_KEY" in st.secrets:
-            api_key = st.secrets["GROQ_API_KEY"]
-            
-        model_selection = st.selectbox(
-            "Select Groq Model", 
-            ["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "gemma2-9b-it"],
-            index=0,
-            help="Llama 3 is highly recommended for accuracy comparable to Gemini."
-        )
+        api_key = st.text_input("Gemini API Key", type="password", help="Required to run the parsing LLM.")
+        if not api_key and "GEMINI_API_KEY" in st.secrets:
+            api_key = st.secrets["GEMINI_API_KEY"]
             
         st.markdown("---")
         st.markdown("### 📄 Input Documents")
@@ -202,29 +203,36 @@ def main():
         process_btn = st.button("🚀 Run AI Analysis", use_container_width=True, type="primary")
 
     if not api_key:
-        st.info("👋 Please enter a free Groq API Key in the sidebar to run the analysis.")
+        st.info("👋 Welcome to the AI Matcher! Please enter your Google Gemini API Key in the sidebar to securely process documents.")
         return
 
     if process_btn:
-        if not jd_file or not resume_files:
-            st.warning("Please upload both a JD and at least one Resume.")
+        if not jd_file:
+            st.warning("Please upload a Job Description to evaluate candidates against.")
+            return
+        if not resume_files:
+            st.warning("Please upload at least one Resume.")
             return
             
         jd_text = extract_text_from_file(jd_file)
         
+        # UI for processing state
         progress_bar = st.progress(0)
         status_text = st.empty()
+        
         all_results = []
         
         for i, resume_file in enumerate(resume_files):
-            status_text.text(f"Evaluating {resume_file.name} ({i+1}/{len(resume_files)})...")
+            status_text.text(f"Extracting & Evaluating {resume_file.name} ({i+1}/{len(resume_files)})...")
             resume_text = extract_text_from_file(resume_file)
             
-            parsed_data = analyze_resume_with_groq(resume_text, jd_text, api_key, model_selection)
+            # Analyze via Gemini using the enhanced prompt
+            parsed_data = analyze_resume_with_gemini(resume_text, jd_text, api_key)
             
             if parsed_data:
-                if not parsed_data.get("candidate_name") or parsed_data["candidate_name"].lower() in ["string", "unknown"]:
-                    parsed_data["candidate_name"] = resume_file.name.rsplit(".", 1)[0]
+                # If name is missing or defaulted by LLM, fallback to filename
+                if not parsed_data.get("candidate_name") or parsed_data["candidate_name"].lower() == "string":
+                    parsed_data["candidate_name"] = resume_file.name.replace(".pdf", "").replace(".docx", "")
                 all_results.append(parsed_data)
                 
             progress_bar.progress((i + 1) / len(resume_files))
@@ -235,7 +243,7 @@ def main():
         if all_results:
             render_dashboard(all_results)
         else:
-            st.error("Extraction failed. Check your API key and file contents.")
+            st.error("Extraction failed for all resumes. Please check your API key validity and document contents.")
 
 if __name__ == "__main__":
     main()
