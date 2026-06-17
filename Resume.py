@@ -14,7 +14,6 @@ import io
 # AI Provider Imports
 import google.generativeai as genai
 from groq import Groq
-from openai import OpenAI
 
 # ─── Configuration & Styling ──────────────────────────────────────────────────
 st.set_page_config(
@@ -56,17 +55,6 @@ GEMINI_MODELS = {
 GROQ_MODELS = {
     "Llama 3.3 70B Versatile": "llama-3.3-70b-versatile",
     "Llama 3.1 8B Instant": "llama-3.1-8b-instant",
-    "Llama 3 70B": "llama3-70b-8192",
-    "Llama 3 8B": "llama3-8b-8192",
-    "Gemma 2 9B IT": "gemma2-9b-it",
-    "Mixtral 8x7B": "mixtral-8x7b-32768"
-}
-
-OPENAI_MODELS = {
-    "GPT-4o": "gpt-4o",
-    "GPT-4o Mini": "gpt-4o-mini",
-    "GPT-4 Turbo": "gpt-4-turbo",
-    "GPT-3.5 Turbo": "gpt-3.5-turbo"
 }
 
 # ─── File Extraction Utilities ────────────────────────────────────────────────
@@ -259,7 +247,7 @@ def main():
         
         provider = st.selectbox(
             "Select AI Provider", 
-            ["Gemini", "Groq", "ChatGPT (OpenAI)"]
+            ["Gemini", "Groq"]
         )
         
         if provider == "Gemini":
