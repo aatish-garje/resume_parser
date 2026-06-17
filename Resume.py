@@ -73,7 +73,7 @@ def analyze_resume_with_gemini(resume_text: str, jd_text: str, api_key: str) -> 
     """Uses Gemini to extract structured JSON data highlighting match, skills gap, and red flags."""
     genai.configure(api_key=api_key)
     # Using gemini-2.5-flash for fast, structured extraction
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-3.1-flash-lite")
     current_date = date.today().strftime("%B %Y")
     
     prompt = f"""
